@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Events\OrderPaid;
+use App\Events\OrderSettled;
 use App\Mail\PaymentConfirmed;
 use App\Mail\RefundConfirmed;
 use App\Models\Event as EventModel;
@@ -454,7 +455,7 @@ class MergedModulesFlowTest extends TestCase
         ]);
 
         $this->app->instance(StripeGateway::class, \Mockery::mock(StripeGateway::class));
-        Event::fake([OrderPaid::class]);
+        Event::fake([OrderPaid::class, OrderSettled::class]);
 
         $sessionCompleted = StripeEvent::constructFrom([
             'id' => 'evt_session_completed',
@@ -470,6 +471,26 @@ class MergedModulesFlowTest extends TestCase
         ]);
 
         app(StripeWebhookService::class)->process($sessionCompleted);
+        Event::assertDispatchedTimes(OrderSettled::class, 1);
+        Event::assertDispatched(OrderSettled::class, function (OrderSettled $settledEvent) use ($attendee, $order, $event, $ticketType): bool {
+            $item = $order->orderItems()->firstOrFail();
+
+            return $settledEvent->toModuleCPayload() === [
+                'event' => 'order.paid',
+                'order_id' => $order->id,
+                'user' => ['id' => $attendee->id, 'email' => $attendee->email],
+                'items' => [[
+                    'product_id' => $ticketType->id,
+                    'ticket_type_id' => $ticketType->id,
+                    'order_item_id' => $item->id,
+                    'event_id' => $event->id,
+                    'quantity' => 1,
+                    'unit_price_cents' => 2100,
+                ]],
+                'total_cents' => 2100,
+                'currency' => 'usd',
+            ];
+        });
         $this->assertDatabaseHas('orders', [
             'id' => $order->id,
             'status' => 'paid',
@@ -486,6 +507,22 @@ class MergedModulesFlowTest extends TestCase
             ->where('type', 'payment')
             ->value('payment'));
         Event::assertNotDispatched(OrderPaid::class);
+
+        $duplicateSessionCompleted = StripeEvent::constructFrom([
+            'id' => 'evt_session_completed_replayed',
+            'type' => 'checkout.session.completed',
+            'data' => ['object' => [
+                'id' => 'cs_paid',
+                'metadata' => ['order_id' => (string) $order->id, 'user_id' => (string) $attendee->id],
+                'payment_status' => 'paid',
+                'payment_intent' => 'pi_paid',
+                'amount_total' => 2100,
+                'currency' => 'usd',
+            ]],
+        ]);
+
+        app(StripeWebhookService::class)->process($duplicateSessionCompleted);
+        Event::assertDispatchedTimes(OrderSettled::class, 1);
 
         $chargeUpdated = StripeEvent::constructFrom([
             'id' => 'evt_paid_charge_updated',

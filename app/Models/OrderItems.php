@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OrderItems extends Model
 {
@@ -29,5 +30,10 @@ class OrderItems extends Model
     public function hold(): BelongsTo
     {
         return $this->belongsTo(Hold::class);
+    }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class, 'order_item_id');
     }
 }

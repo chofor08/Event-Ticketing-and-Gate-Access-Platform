@@ -9,6 +9,7 @@ use App\Models\LedgerEntries;
 use App\Models\OrderItems;
 use App\Models\Orders;
 use App\Models\RefundRequest;
+use App\Models\Ticket;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -244,6 +245,22 @@ class OrderRefundService
                     ? 'refunded'
                     : ($pendingRefunds ? 'refund_pending' : 'partially_refunded'),
             ]);
+
+            $refundedItemIds = $request->order_item_ids;
+            if ($totalRefunded >= $order->amount_cents && $refundedItemIds === []) {
+                $refundedItemIds = $order->orderItems()->pluck('id')->all();
+            }
+            if ($refundedItemIds !== []) {
+                Ticket::query()
+                    ->whereIn('order_item_id', $refundedItemIds)
+                    ->whereIn('status', ['issued', 'admitted', 'admission_conflict'])
+                    ->update([
+                        'status' => 'refunded',
+                        'admitted_at' => null,
+                        'admitted_gate_id' => null,
+                        'updated_at' => now(),
+                    ]);
+            }
 
             DB::afterCommit(fn () => OrderRefunded::dispatch($order->load('user'), $amount));
         });

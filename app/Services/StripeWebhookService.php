@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Events\OrderPaid;
+use App\Events\OrderSettled;
 use App\Models\Event;
 use App\Models\Hold;
 use App\Models\LedgerEntries;
@@ -257,6 +258,8 @@ class StripeWebhookService
                     'refund' => 0,
                 ],
             );
+
+            DB::afterCommit(fn () => OrderSettled::dispatch($order->load('user', 'orderItems.ticketType.event')));
 
             if ($order->payment_method_type) {
                 DB::afterCommit(fn () => OrderPaid::dispatch($order->load('user', 'orderItems.ticketType.event')));

@@ -40,6 +40,26 @@ class Event extends Model
         return $this->hasMany(TicketType::class);
     }
 
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
+    public function gates(): HasMany
+    {
+        return $this->hasMany(Gate::class);
+    }
+
+    public function gateStaffAssignments(): HasMany
+    {
+        return $this->hasMany(GateStaffAssignment::class);
+    }
+
+    public function gateStaffInvitations(): HasMany
+    {
+        return $this->hasMany(GateStaffInvitation::class);
+    }
+
     public function startsAt(): Carbon
     {
         $date = $this->getRawOriginal('date');

@@ -52,6 +52,31 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(LedgerEntries::class);
     }
 
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
+    public function gateStaffAssignments(): HasMany
+    {
+        return $this->hasMany(GateStaffAssignment::class);
+    }
+
+    public function gateStaffInvitationsCreated(): HasMany
+    {
+        return $this->hasMany(GateStaffInvitation::class, 'invited_by_user_id');
+    }
+
+    public function gateDevices(): HasMany
+    {
+        return $this->hasMany(GateDevice::class);
+    }
+
+    public function scanAttempts(): HasMany
+    {
+        return $this->hasMany(ScanAttempt::class, 'staff_id');
+    }
+
     public function isAttendee(): bool
     {
         return $this->role === 'attendee';
