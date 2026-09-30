@@ -23,7 +23,7 @@ class TicketTypeController extends Controller
     {
         $attributes = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('ticket_types')->where('event_id', $event->id)],
-            'base_price_cents' => ['required', 'integer', 'min:1'],
+            'base_price_xaf' => ['required', 'integer', 'min:1'],
             'discount' => ['sometimes', 'integer', 'between:0,100'],
             'quantity' => ['required', 'integer', 'min:1'],
         ]);
@@ -38,7 +38,7 @@ class TicketTypeController extends Controller
     {
         $attributes = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
-            'base_price_cents' => ['sometimes', 'integer', 'min:1'],
+            'base_price_xaf' => ['sometimes', 'integer', 'min:1'],
             'discount' => ['sometimes', 'integer', 'between:0,100'],
             'quantity' => ['sometimes', 'integer', 'min:1'],
         ]);

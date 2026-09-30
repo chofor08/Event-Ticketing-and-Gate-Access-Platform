@@ -13,7 +13,7 @@ class RefundConfirmed extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public Orders $order, public int $amountCents) {}
+    public function __construct(public Orders $order, public int $amountXaf) {}
 
     public function envelope(): Envelope
     {
@@ -29,7 +29,7 @@ class RefundConfirmed extends Mailable
             with: [
                 'order' => $this->order,
                 'userName' => $this->order->user->name,
-                'refundAmount' => number_format($this->amountCents / 100, 2),
+                'refundAmount' => number_format($this->amountXaf, 0),
                 'currency' => strtoupper($this->order->currency),
                 'orderId' => $this->order->id,
                 'txnId' => $this->order->payment_intent_id,
@@ -38,7 +38,7 @@ class RefundConfirmed extends Mailable
                 'items' => $this->order->orderItems->map(fn ($item): object => (object) [
                     'name' => $item->ticketType->event->title.' - '.$item->ticketType->name,
                     'quantity' => $item->quantity,
-                    'price' => $item->unit_price_cents / 100,
+                    'price' => $item->unit_price_xaf,
                 ]),
             ],
         );

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\Gate;
 use App\Models\GateDevice;
+use App\Models\GateStaffAssignment;
 use App\Models\User;
 use App\Services\GateAccessService;
 use App\Services\GateDeviceSnapshotService;
@@ -16,6 +17,46 @@ use Illuminate\Validation\ValidationException;
 
 class GateDeviceController extends Controller
 {
+    public function access(Request $request): JsonResponse
+    {
+        $userId = $request->user()->getKey();
+        $assignments = GateStaffAssignment::query()
+            ->where('user_id', $userId)
+            ->with([
+                'event:id,title,date,start_time,status',
+                'event.gates' => fn ($query) => $query
+                    ->where('status', 'active')
+                    ->orderBy('id')
+                    ->with(['devices' => fn ($query) => $query
+                        ->where('user_id', $userId)
+                        ->whereNull('revoked_at')
+                        ->orderBy('id')]),
+            ])
+            ->orderBy('event_id')
+            ->get();
+
+        return response()->json([
+            'assignments' => $assignments->map(fn (GateStaffAssignment $assignment): array => [
+                'event' => [
+                    'id' => $assignment->event->getKey(),
+                    'title' => $assignment->event->title,
+                    'date' => $assignment->event->date?->toDateString(),
+                    'start_time' => $assignment->event->start_time,
+                    'status' => $assignment->event->status,
+                    'gates' => $assignment->event->gates->map(fn (Gate $gate): array => [
+                        'id' => $gate->getKey(),
+                        'name' => $gate->name,
+                        'devices' => $gate->devices->map(fn (GateDevice $device): array => [
+                            'id' => $device->public_id,
+                            'name' => $device->name,
+                            'last_snapshot_at' => $device->last_snapshot_at?->toIso8601String(),
+                        ])->values()->all(),
+                    ])->values()->all(),
+                ],
+            ])->values()->all(),
+        ]);
+    }
+
     public function index(
         Event $event,
         Gate $gate,

@@ -27,7 +27,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('event_id')->constrained()->restrictOnDelete();
             $table->string('name');
-            $table->unsignedBigInteger('base_price_cents');
+            $table->unsignedBigInteger('base_price_xaf');
             $table->unsignedTinyInteger('discount')->default(0);
             $table->unsignedInteger('quantity');
             $table->unique(['event_id', 'name']);
@@ -53,14 +53,14 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->restrictOnDelete();
             $table->string('payment_intent_id')->nullable()->unique();
             $table->string('session_id')->nullable()->unique();
-            $table->string('currency', 3)->default('usd');
+            $table->string('currency', 3)->default('xaf');
             $table->string('payment_method_type')->nullable();
             $table->string('payment_method_id')->nullable();
             $table->string('payment_method_brand')->nullable();
             $table->char('payment_method_last4', 4)->nullable();
             $table->json('payment_method_details')->nullable();
             $table->string('status')->default('pending');
-            $table->unsignedBigInteger('amount_cents');
+            $table->unsignedBigInteger('amount_xaf');
             $table->timestamps();
             $table->index(['user_id', 'status']);
         });
@@ -71,8 +71,8 @@ return new class extends Migration
             $table->foreignId('ticket_type_id')->constrained()->restrictOnDelete();
             $table->foreignId('hold_id')->unique()->constrained()->restrictOnDelete();
             $table->unsignedInteger('quantity');
-            $table->unsignedBigInteger('unit_price_cents');
-            $table->unsignedBigInteger('sub_total_cents');
+            $table->unsignedBigInteger('unit_price_xaf');
+            $table->unsignedBigInteger('sub_total_xaf');
             $table->timestamps();
         });
 
@@ -82,10 +82,7 @@ return new class extends Migration
             $table->foreignId('order_id')->constrained()->restrictOnDelete();
             $table->string('type');
             $table->string('reference_key')->unique();
-            $table->bigInteger('amount_cents');
-            $table->decimal('payment', 8, 2)->default(0);
-            $table->decimal('refund', 8, 2)->default(0);
-            $table->decimal('adjustment', 8, 2)->nullable();
+            $table->bigInteger('amount_xaf');
             $table->timestamps();
             $table->index(['user_id', 'created_at']);
         });
@@ -97,7 +94,7 @@ return new class extends Migration
             $table->foreignId('event_id')->nullable()->constrained()->restrictOnDelete();
             $table->string('reason');
             $table->json('order_item_ids');
-            $table->unsignedBigInteger('amount_cents');
+            $table->unsignedBigInteger('amount_xaf');
             $table->string('idempotency_key')->unique();
             $table->unsignedSmallInteger('attempts')->default(0);
             $table->string('stripe_refund_id')->nullable()->unique();

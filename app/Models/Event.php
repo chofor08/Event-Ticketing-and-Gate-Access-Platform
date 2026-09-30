@@ -40,9 +40,9 @@ class Event extends Model
         return $this->hasMany(TicketType::class);
     }
 
-    public function tickets(): HasMany
+    public function refundRequests(): HasMany
     {
-        return $this->hasMany(Ticket::class);
+        return $this->hasMany(RefundRequest::class);
     }
 
     public function gates(): HasMany

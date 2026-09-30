@@ -11,6 +11,6 @@ class OrderRefundedConfirmation implements ShouldQueue
 {
     public function handle(OrderRefunded $event): void
     {
-        Mail::to($event->order->user)->send(new RefundConfirmed($event->order, $event->amountCents));
+        Mail::to($event->order->user)->send(new RefundConfirmed($event->order, $event->amountXaf));
     }
 }

@@ -13,8 +13,8 @@ class OrderItems extends Model
         'ticket_type_id',
         'hold_id',
         'quantity',
-        'unit_price_cents',
-        'sub_total_cents',
+        'unit_price_xaf',
+        'sub_total_xaf',
     ];
 
     public function order(): BelongsTo

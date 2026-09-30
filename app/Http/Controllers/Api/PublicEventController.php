@@ -44,18 +44,18 @@ class PublicEventController extends Controller
             $query->whereDate('date', '<=', $request->date_to);
         }
 
-        // Filter by discounted ticket price in cents.
-        if ($request->filled('min_price_cents')) {
+        // Filter by discounted ticket price in xaf.
+        if ($request->filled('min_price_xaf')) {
             $query->whereHas('ticketTypes', fn ($tickets) => $tickets->whereRaw(
-                'ROUND(base_price_cents * (100 - discount) / 100, 0) >= ?',
-                [(int) $request->input('min_price_cents')],
+                'ROUND(base_price_xaf * (100 - discount) / 100, 0) >= ?',
+                [(int) $request->input('min_price_xaf')],
             ));
         }
 
-        if ($request->filled('max_price_cents')) {
+        if ($request->filled('max_price_xaf')) {
             $query->whereHas('ticketTypes', fn ($tickets) => $tickets->whereRaw(
-                'ROUND(base_price_cents * (100 - discount) / 100, 0) <= ?',
-                [(int) $request->input('max_price_cents')],
+                'ROUND(base_price_xaf * (100 - discount) / 100, 0) <= ?',
+                [(int) $request->input('max_price_xaf')],
             ));
         }
 

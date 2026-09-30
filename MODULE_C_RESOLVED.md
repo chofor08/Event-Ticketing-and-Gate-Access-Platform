@@ -10,7 +10,7 @@ This document resolves the Module C ticket, credential, and gate-admission behav
 
 The Module C source scanned is `offline-ticketing-system/ticket-confirmation-API`. The registration and inventory modules were also checked for role and order dependencies. The standalone Module C README is the stock Laravel README and does not document module behavior; behavior below is derived from its routes, services, models, migrations, and tests.
 
-The integration decisions below were confirmed during implementation review. The merged application now contains the API-only Module C backend; no camera or gate-device user interface is included in this repository.
+The integration decisions below were confirmed during implementation review. The merged application contains the Module C API, attendee wallet/detail view, invitation acceptance page, organizer gate/staff/device management, assigned-staff scanner, and encrypted offline scan queue.
 
 ## Module C behavior observed in source
 
@@ -108,11 +108,11 @@ Evidence: [Module C API routes](offline-ticketing-system/ticket-confirmation-API
 
 ## Current Integration Status
 
-The merged backend includes shared per-unit ticket issuance from `OrderSettled`, attendee ticket retrieval, event-owned gates, email invitations, event assignments, organizer-managed devices, online scans, signed snapshots, and per-attempt offline sync. Online and server-reconciled results use the exact outcomes `admitted`, `already_used`, `wrong_event`, `cancelled_or_refunded`, and `invalid_code`.
+The merged backend includes shared per-unit ticket issuance from `OrderSettled`, attendee ticket retrieval, event-owned gates, email invitations, event assignments, organizer-managed devices, online scans, signed snapshots, and per-attempt offline sync. The frontend includes a paginated attendee wallet with locally rendered signed-code QR details, invitation acceptance, organizer gate/staff/device management, assigned-event online scanning, signed snapshot verification, and an encrypted IndexedDB offline queue. Online and server-reconciled results use the exact outcomes `admitted`, `already_used`, `wrong_event`, `cancelled_or_refunded`, and `invalid_code`.
 
 Approved route families are:
-
 - `GET /api/my-tickets`
+- `GET /api/gate/access` (authenticated user's assigned events, active gates, and own active devices)
 - Organizer gate management and entry counts under `/api/organizer/events/{event}`
 - Organizer invitations under `/api/organizer/events/{event}/gate-staff/invitations`
 - `POST /api/gate-invitations/accept`
@@ -124,8 +124,8 @@ Approved route families are:
 Remaining deployment/client work:
 
 - Configure `TICKET_ACTIVE_KEY_ID` and `TICKET_SIGNING_KEYS`; configure the snapshot private key and versioned public-key map; set `GATE_CLIENT_INVITATION_URL`; and configure a production queue/mail transport. The sample environment intentionally contains no secret material.
-- Implement the external gate client. It must verify snapshot signatures, download every page before enabling offline mode, store its retry queue, hash scanned QR values for roster lookup, and submit the documented attempt fields. This repository does not include a camera UI or local client storage.
-- The client must use the current snapshot until it expires after 24 hours; no early-refresh parameter exists. It should use online scanning for QR codes absent from its roster when connectivity is available.
+- The scanner uses the browser's native `BarcodeDetector` when available, with a manual ticket-code entry fallback. Browsers without `BarcodeDetector` do not have camera scanning.
+- The client uses the current snapshot until it expires after 24 hours; no early-refresh parameter exists. It uses online scanning for codes absent from its roster when connectivity is available.
 - Run the scheduler so expired snapshots are pruned after the 30-day sync retention period.
 - Add or run concurrency tests against the production database engine and measure online scan latency after deployment; SQLite feature tests do not establish production lock behavior or the 300-ms target.
 - The approved design does not authenticate device-reported times/outcomes with per-attempt signatures. Sync flags these as unverified and recomputes server outcomes. Disconnected gates can admit the same ticket before sync; the API reports this conflict but cannot undo physical entry.

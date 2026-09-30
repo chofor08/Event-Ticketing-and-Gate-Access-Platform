@@ -14,7 +14,14 @@ class EventController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $events = $request->user()->events()->with('ticketTypes')->latest('date')->paginate(20);
+        $events = $request->user()->events()
+            ->with([
+                'ticketTypes',
+                'refundRequests' => fn ($query) => $query->whereNotNull('event_id')
+                    ->select(['id', 'event_id', 'order_id', 'reason', 'amount_xaf', 'attempts', 'status', 'processed_at']),
+            ])
+            ->latest('date')
+            ->paginate(20);
 
         return response()->json(['events' => $events]);
     }
@@ -66,6 +73,11 @@ class EventController extends Controller
         ]);
 
         return response()->json(['event' => $eventService->updateEvent($event, $request->user(), $attributes)]);
+    }
+
+    public function publish(Event $event, EventService $eventService): JsonResponse
+    {
+        return response()->json(['event' => $eventService->publishEvent($event, request()->user())]);
     }
 
     public function cancel(Event $event, EventService $eventService, OrderRefundService $refundService): JsonResponse

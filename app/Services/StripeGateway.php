@@ -18,10 +18,10 @@ class StripeGateway
         return $this->stripe->checkout->sessions->create($parameters, ['idempotency_key' => $idempotencyKey]);
     }
 
-    public function createRefund(string $paymentIntentId, int $amountCents, string $idempotencyKey): Refund
+    public function createRefund(string $paymentIntentId, int $amountXaf, string $idempotencyKey): Refund
     {
         return $this->stripe->refunds->create(
-            ['payment_intent' => $paymentIntentId, 'amount' => $amountCents],
+            ['payment_intent' => $paymentIntentId, 'amount' => $amountXaf],
             ['idempotency_key' => $idempotencyKey],
         );
     }

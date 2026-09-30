@@ -371,12 +371,24 @@ class TicketScanService
     /** @return array<string, mixed> */
     private function result(ScanAttempt $attempt): array
     {
+        $ticket = $attempt->ticket;
+        $admission = $ticket?->status === 'admitted' && $ticket->admitted_at && $ticket->admittedGate
+            ? [
+                'admitted_at' => $ticket->admitted_at->toIso8601String(),
+                'gate' => [
+                    'id' => $ticket->admittedGate->getKey(),
+                    'name' => $ticket->admittedGate->name,
+                ],
+            ]
+            : null;
+
         return [
             'attempt_id' => $attempt->attempt_id,
             'outcome' => $attempt->outcome,
             'reconciled_outcome' => $attempt->reconciled_outcome,
             'ticket_id' => $attempt->ticket_id,
             'scanned_at' => $attempt->scanned_at->toIso8601String(),
+            'admission' => $admission,
             'reconciliation_flags' => $attempt->reconciliation_flags ?? [],
         ];
     }

@@ -11,16 +11,16 @@ class TicketType extends Model
     protected $fillable = [
         'event_id',
         'name',
-        'base_price_cents',
+        'base_price_xaf',
         'discount',
         'quantity',
     ];
 
-    protected $appends = ['price_cents'];
+    protected $appends = ['price_xaf'];
 
-    public function getPriceCentsAttribute(): int
+    public function getPriceXafAttribute(): int
     {
-        return (int) round($this->base_price_cents * (100 - $this->discount) / 100);
+        return (int) round($this->base_price_xaf * (100 - $this->discount) / 100);
     }
 
     public function event(): BelongsTo

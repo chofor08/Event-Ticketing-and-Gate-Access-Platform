@@ -19,7 +19,7 @@ class Orders extends Model
         'payment_method_last4',
         'payment_method_details',
         'status',
-        'amount_cents',
+        'amount_xaf',
     ];
 
     protected function casts(): array
@@ -57,5 +57,10 @@ class Orders extends Model
     public function ledgerEntries(): HasMany
     {
         return $this->hasMany(LedgerEntries::class, 'order_id');
+    }
+
+    public function refundRequests(): HasMany
+    {
+        return $this->hasMany(RefundRequest::class, 'order_id');
     }
 }

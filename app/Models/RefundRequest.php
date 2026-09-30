@@ -12,7 +12,7 @@ class RefundRequest extends Model
         'event_id',
         'reason',
         'order_item_ids',
-        'amount_cents',
+        'amount_xaf',
         'idempotency_key',
         'attempts',
         'stripe_refund_id',

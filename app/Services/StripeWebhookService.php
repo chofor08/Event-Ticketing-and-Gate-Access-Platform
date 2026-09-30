@@ -214,7 +214,7 @@ class StripeWebhookService
 
             $holdsAreValid = $items->isNotEmpty()
                 && (int) ($session->metadata->user_id ?? 0) === (int) $order->user_id
-                && (int) ($session->amount_total ?? -1) === (int) $order->amount_cents
+                && (int) ($session->amount_total ?? -1) === (int) $order->amount_xaf
                 && strtolower((string) ($session->currency ?? '')) === strtolower($order->currency);
             foreach ($items as $item) {
                 $hold = $holds->get($item->hold_id);
@@ -253,9 +253,7 @@ class StripeWebhookService
                     'user_id' => $order->user_id,
                     'order_id' => $order->getKey(),
                     'type' => 'payment',
-                    'amount_cents' => $order->amount_cents,
-                    'payment' => $order->amount_cents / 100,
-                    'refund' => 0,
+                    'amount_xaf' => $order->amount_xaf,
                 ],
             );
 

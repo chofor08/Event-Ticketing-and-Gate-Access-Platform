@@ -18,21 +18,21 @@ class SalesSummaryController extends Controller
         );
         $scopedOrderIds = (clone $orders)->select('orders.id');
 
-        $paidCents = LedgerEntries::query()
+        $paidXaf = LedgerEntries::query()
             ->where('type', 'payment')
             ->whereIn('order_id', $scopedOrderIds)
-            ->sum('amount_cents');
-        $refundCents = abs((int) LedgerEntries::query()
+            ->sum('amount_xaf');
+        $refundXaf = abs((int) LedgerEntries::query()
             ->where('type', 'refund')
             ->whereIn('order_id', $scopedOrderIds)
-            ->sum('amount_cents'));
+            ->sum('amount_xaf'));
 
         return response()->json([
             'orders_count' => $orders->count(),
-            'paid_cents' => (int) $paidCents,
-            'refunded_cents' => $refundCents,
-            'collected_cents' => (int) $paidCents - $refundCents,
-            'currency' => 'usd',
+            'paid_xaf' => (int) $paidXaf,
+            'refunded_xaf' => $refundXaf,
+            'collected_xaf' => (int) $paidXaf - $refundXaf,
+            'currency' => config('app.currency'),
             'refund_attribution' => 'full_order_per_organizer',
         ]);
     }

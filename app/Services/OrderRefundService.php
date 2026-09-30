@@ -19,8 +19,8 @@ class OrderRefundService
 
     public function requestFullRefund(Orders $order): Orders
     {
-        $settledCents = abs((int) $order->ledgerEntries()->where('type', 'refund')->sum('amount_cents'));
-        $remainingCents = max(0, $order->amount_cents - $settledCents);
+        $settledXaf = abs((int) $order->ledgerEntries()->where('type', 'refund')->sum('amount_xaf'));
+        $remainingXaf = max(0, $order->amount_xaf - $settledXaf);
         $settledItemIds = RefundRequest::query()
             ->where('order_id', $order->getKey())
             ->where('status', 'succeeded')
@@ -32,13 +32,13 @@ class OrderRefundService
             ->pluck('id')
             ->all();
 
-        if ($remainingCents === 0 || $itemIds === []) {
+        if ($remainingXaf === 0 || $itemIds === []) {
             return $order->refresh();
         }
 
-        $key = 'order-'.$order->getKey().'-full-refund-'.$remainingCents;
+        $key = 'order-'.$order->getKey().'-full-refund-'.$remainingXaf;
 
-        return $this->requestRefund($order, null, $itemIds, $remainingCents, 'attendee_request', $key);
+        return $this->requestRefund($order, null, $itemIds, $remainingXaf, 'attendee_request', $key);
     }
 
     public function requestEventRefund(Orders $order, Event $event): Orders
@@ -59,21 +59,21 @@ class OrderRefundService
             return $order->refresh();
         }
 
-        $amountCents = (int) $order->orderItems()->whereIn('id', $itemIds)->sum('sub_total_cents');
+        $amountXaf = (int) $order->orderItems()->whereIn('id', $itemIds)->sum('sub_total_xaf');
         $key = 'order-'.$order->getKey().'-event-'.$event->getKey().'-refund';
 
-        return $this->requestRefund($order, $event, $itemIds, $amountCents, 'event_cancelled', $key);
+        return $this->requestRefund($order, $event, $itemIds, $amountXaf, 'event_cancelled', $key);
     }
 
     private function requestRefund(
         Orders $order,
         ?Event $event,
         array $itemIds,
-        int $amountCents,
+        int $amountXaf,
         string $reason,
         string $idempotencyKey,
     ): Orders {
-        $request = DB::transaction(function () use ($order, $event, $itemIds, $amountCents, $reason, $idempotencyKey): RefundRequest {
+        $request = DB::transaction(function () use ($order, $event, $itemIds, $amountXaf, $reason, $idempotencyKey): RefundRequest {
             $order = Orders::query()->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
             $existingRequest = RefundRequest::query()->where('idempotency_key', $idempotencyKey)->first();
 
@@ -86,13 +86,13 @@ class OrderRefundService
                 throw ValidationException::withMessages(['order' => 'Only paid orders can be refunded.']);
             }
 
-            $settledCents = abs((int) $order->ledgerEntries()->where('type', 'refund')->sum('amount_cents'));
-            $otherPendingCents = RefundRequest::query()
+            $settledXaf = abs((int) $order->ledgerEntries()->where('type', 'refund')->sum('amount_xaf'));
+            $otherPendingXaf = RefundRequest::query()
                 ->where('order_id', $order->getKey())
                 ->where('status', 'pending')
                 ->where('idempotency_key', '!=', $idempotencyKey)
-                ->sum('amount_cents');
-            if ($amountCents < 1 || $amountCents > $order->amount_cents - $settledCents - $otherPendingCents) {
+                ->sum('amount_xaf');
+            if ($amountXaf < 1 || $amountXaf > $order->amount_xaf - $settledXaf - $otherPendingXaf) {
                 throw ValidationException::withMessages(['order' => 'The refund amount exceeds the remaining paid balance.']);
             }
 
@@ -104,7 +104,7 @@ class OrderRefundService
                     'event_id' => $event?->getKey(),
                     'reason' => $reason,
                     'order_item_ids' => $itemIds,
-                    'amount_cents' => $amountCents,
+                    'amount_xaf' => $amountXaf,
                     'attempts' => $existingRequest
                         ? $existingRequest->attempts + ($existingRequest->status === 'failed' ? 1 : 0)
                         : 1,
@@ -128,7 +128,7 @@ class OrderRefundService
         try {
             $refund = $this->stripe->createRefund(
                 $order->payment_intent_id,
-                $request->amount_cents,
+                $request->amount_xaf,
                 $request->idempotency_key.'-attempt-'.$request->attempts,
             );
         } catch (\Throwable $exception) {
@@ -157,7 +157,7 @@ class OrderRefundService
     public function handleStripeRefundUpdate(
         string $stripeRefundId,
         string $status,
-        int $amountCents,
+        int $amountXaf,
         ?string $failureReason = null,
     ): void {
         $request = RefundRequest::query()->where('stripe_refund_id', $stripeRefundId)->first();
@@ -166,7 +166,7 @@ class OrderRefundService
         }
 
         if ($status === 'succeeded') {
-            $this->settleRefundRequest($request, $stripeRefundId, $amountCents);
+            $this->settleRefundRequest($request, $stripeRefundId, $amountXaf);
 
             return;
         }
@@ -187,7 +187,7 @@ class OrderRefundService
             ]);
 
             $order = Orders::query()->whereKey($request->order_id)->lockForUpdate()->firstOrFail();
-            $settledCents = abs((int) $order->ledgerEntries()->where('type', 'refund')->sum('amount_cents'));
+            $settledXaf = abs((int) $order->ledgerEntries()->where('type', 'refund')->sum('amount_xaf'));
             $otherPendingRefunds = RefundRequest::query()
                 ->where('order_id', $order->getKey())
                 ->where('status', 'pending')
@@ -197,21 +197,21 @@ class OrderRefundService
             $order->update([
                 'status' => $otherPendingRefunds
                     ? 'refund_pending'
-                    : ($settledCents > 0 ? 'partially_refunded' : 'refund_failed'),
+                    : ($settledXaf > 0 ? 'partially_refunded' : 'refund_failed'),
             ]);
         });
     }
 
-    public function settleRefundRequest(RefundRequest $request, string $stripeRefundId, int $amountRefundedCents): void
+    public function settleRefundRequest(RefundRequest $request, string $stripeRefundId, int $amountRefundedXaf): void
     {
-        DB::transaction(function () use ($request, $stripeRefundId, $amountRefundedCents): void {
+        DB::transaction(function () use ($request, $stripeRefundId, $amountRefundedXaf): void {
             $request = RefundRequest::query()->whereKey($request->getKey())->lockForUpdate()->firstOrFail();
             if ($request->status === 'succeeded') {
                 return;
             }
 
             $order = Orders::query()->whereKey($request->order_id)->lockForUpdate()->firstOrFail();
-            $amount = min($amountRefundedCents, $request->amount_cents);
+            $amount = min($amountRefundedXaf, $request->amount_xaf);
             $request->update([
                 'status' => 'succeeded',
                 'stripe_refund_id' => $stripeRefundId,
@@ -225,23 +225,21 @@ class OrderRefundService
                     'user_id' => $order->user_id,
                     'order_id' => $order->getKey(),
                     'type' => 'refund',
-                    'amount_cents' => -$amount,
-                    'payment' => 0,
-                    'refund' => $amount / 100,
+                    'amount_xaf' => -$amount,
                 ],
             );
 
             $holdIds = OrderItems::query()->whereIn('id', $request->order_item_ids)->pluck('hold_id');
             Hold::query()->whereIn('id', $holdIds)->where('status', 'confirmed')->update(['status' => 'released']);
 
-            $totalRefunded = abs((int) $order->ledgerEntries()->where('type', 'refund')->sum('amount_cents'));
+            $totalRefunded = abs((int) $order->ledgerEntries()->where('type', 'refund')->sum('amount_xaf'));
             $pendingRefunds = RefundRequest::query()
                 ->where('order_id', $order->getKey())
                 ->where('status', 'pending')
                 ->whereKeyNot($request->getKey())
                 ->exists();
             $order->update([
-                'status' => $totalRefunded >= $order->amount_cents
+                'status' => $totalRefunded >= $order->amount_xaf
                     ? 'refunded'
                     : ($pendingRefunds ? 'refund_pending' : 'partially_refunded'),
             ]);
@@ -266,12 +264,12 @@ class OrderRefundService
         });
     }
 
-    public function reconcileStripeChargeRefund(Orders $order, string $eventId, int $totalRefundedCents): void
+    public function reconcileStripeChargeRefund(Orders $order, string $eventId, int $totalRefundedXaf): void
     {
-        DB::transaction(function () use ($order, $eventId, $totalRefundedCents): void {
+        DB::transaction(function () use ($order, $eventId, $totalRefundedXaf): void {
             $order = Orders::query()->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
-            $alreadyRefunded = abs((int) $order->ledgerEntries()->where('type', 'refund')->sum('amount_cents'));
-            $amount = min(max(0, $totalRefundedCents - $alreadyRefunded), $order->amount_cents - $alreadyRefunded);
+            $alreadyRefunded = abs((int) $order->ledgerEntries()->where('type', 'refund')->sum('amount_xaf'));
+            $amount = min(max(0, $totalRefundedXaf - $alreadyRefunded), $order->amount_xaf - $alreadyRefunded);
             if ($amount === 0) {
                 return;
             }
@@ -283,7 +281,7 @@ class OrderRefundService
                     'order_id' => $order->getKey(),
                     'reason' => 'stripe_charge_refunded',
                     'order_item_ids' => [],
-                    'amount_cents' => $amount,
+                    'amount_xaf' => $amount,
                     'status' => 'succeeded',
                     'processed_at' => now(),
                 ],
@@ -294,13 +292,11 @@ class OrderRefundService
                     'user_id' => $order->user_id,
                     'order_id' => $order->getKey(),
                     'type' => 'refund',
-                    'amount_cents' => -$amount,
-                    'payment' => 0,
-                    'refund' => $amount / 100,
+                    'amount_xaf' => -$amount,
                 ],
             );
 
-            $fullyRefunded = $alreadyRefunded + $amount >= $order->amount_cents;
+            $fullyRefunded = $alreadyRefunded + $amount >= $order->amount_xaf;
             $order->update(['status' => $fullyRefunded ? 'refunded' : 'partially_refunded']);
             if ($fullyRefunded) {
                 Hold::query()->whereIn('id', $order->orderItems()->pluck('hold_id'))

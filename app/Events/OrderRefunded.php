@@ -10,5 +10,5 @@ class OrderRefunded
 {
     use Dispatchable, SerializesModels;
 
-    public function __construct(public Orders $order, public int $amountCents) {}
+    public function __construct(public Orders $order, public int $amountXaf) {}
 }

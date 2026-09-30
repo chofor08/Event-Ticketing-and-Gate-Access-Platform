@@ -10,6 +10,7 @@ use App\Models\TicketType;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Stripe\Exception\ApiConnectionException;
 
 class CheckoutService
 {
@@ -57,9 +58,33 @@ class CheckoutService
                 throw ValidationException::withMessages(['hold_ids' => 'Every hold must belong to your account.']);
             }
 
-            // Snapshot discounted prices in cents before handing the order to Stripe.
-            $totalCents = 0;
-            /** @var list<array{hold: Hold, ticket_type: TicketType, unit_price_cents: int, sub_total_cents: int}> $lines */
+            // Reuse a pending order only when its complete hold set matches this retry.
+            $requestedHoldIds = collect($holdIds)
+                ->map(static fn ($holdId): int => (int) $holdId)
+                ->sort()
+                ->values()
+                ->all();
+            $pendingOrders = Orders::query()
+                ->where('user_id', $attendee->getKey())
+                ->where('status', 'pending')
+                ->whereHas('orderItems', fn ($query) => $query->whereIn('hold_id', $holdIds))
+                ->with('orderItems')
+                ->lockForUpdate()
+                ->get();
+            $existingOrder = $pendingOrders->first(function (Orders $pendingOrder) use ($requestedHoldIds): bool {
+                $orderHoldIds = $pendingOrder->orderItems
+                    ->pluck('hold_id')
+                    ->map(static fn ($holdId): int => (int) $holdId)
+                    ->sort()
+                    ->values()
+                    ->all();
+
+                return $orderHoldIds === $requestedHoldIds;
+            });
+
+            // Snapshot discounted prices in xaf before handing the order to Stripe.
+            $totalXaf = 0;
+            /** @var list<array{hold: Hold, ticket_type: TicketType, unit_price_xaf: int, sub_total_xaf: int}> $lines */
             $lines = [];
 
             foreach ($holds as $hold) {
@@ -69,7 +94,8 @@ class CheckoutService
                     ]);
                 }
 
-                if ($hold->orderItem()->exists()) {
+                $holdOrderItem = $hold->orderItem;
+                if ($holdOrderItem && (! $existingOrder || (int) $holdOrderItem->order_id !== (int) $existingOrder->getKey())) {
                     throw ValidationException::withMessages(['hold_ids' => "Hold {$hold->id} is already in an order."]);
                 }
 
@@ -80,36 +106,40 @@ class CheckoutService
                     ]);
                 }
 
-                $unitPriceCents = $ticketType->price_cents;
-                $subTotalCents = $unitPriceCents * $hold->quantity;
-                $totalCents += $subTotalCents;
+                $unitPriceXaf = $ticketType->price_xaf;
+                $subTotalXaf = $unitPriceXaf * $hold->quantity;
+                $totalXaf += $subTotalXaf;
                 $lines[] = [
                     'hold' => $hold,
                     'ticket_type' => $ticketType,
-                    'unit_price_cents' => $unitPriceCents,
-                    'sub_total_cents' => $subTotalCents,
+                    'unit_price_xaf' => $unitPriceXaf,
+                    'sub_total_xaf' => $subTotalXaf,
                 ];
             }
 
-            $order = Orders::create([
-                'user_id' => $attendee->getKey(),
-                'currency' => 'usd',
-                'status' => 'pending',
-                'amount_cents' => $totalCents,
-            ]);
-
-            foreach ($lines as $line) {
-                /** @var TicketType $ticketType */
-                $ticketType = $line['ticket_type'];
-                // Keep the charged price on the order line even if the ticket price changes later.
-                OrderItems::create([
-                    'order_id' => $order->getKey(),
-                    'ticket_type_id' => $ticketType->getKey(),
-                    'hold_id' => $line['hold']->getKey(),
-                    'quantity' => $line['hold']->quantity,
-                    'unit_price_cents' => $line['unit_price_cents'],
-                    'sub_total_cents' => $line['sub_total_cents'],
+            if ($existingOrder) {
+                $order = $existingOrder;
+            } else {
+                $order = Orders::create([
+                    'user_id' => $attendee->getKey(),
+                    'currency' => config('app.currency'),
+                    'status' => 'pending',
+                    'amount_xaf' => $totalXaf,
                 ]);
+
+                foreach ($lines as $line) {
+                    /** @var TicketType $ticketType */
+                    $ticketType = $line['ticket_type'];
+                    // Keep the charged price on the order line even if the ticket price changes later.
+                    OrderItems::create([
+                        'order_id' => $order->getKey(),
+                        'ticket_type_id' => $ticketType->getKey(),
+                        'hold_id' => $line['hold']->getKey(),
+                        'quantity' => $line['hold']->quantity,
+                        'unit_price_xaf' => $line['unit_price_xaf'],
+                        'sub_total_xaf' => $line['sub_total_xaf'],
+                    ]);
+                }
             }
 
             return $order;
@@ -124,7 +154,7 @@ class CheckoutService
                     'product_data' => [
                         'name' => $line->ticketType->event->title.' - '.$line->ticketType->name,
                     ],
-                    'unit_amount' => $line->unit_price_cents,
+                    'unit_amount' => $line->unit_price_xaf,
                 ],
                 'quantity' => $line->quantity,
             ])->all();
@@ -145,6 +175,9 @@ class CheckoutService
             ], 'checkout-order-'.$order->getKey());
 
             $order->update(['session_id' => $session->id]);
+        } catch (ApiConnectionException $exception) {
+            // Keep the pending order and holds so the attendee can retry after reconnecting.
+            throw $exception;
         } catch (\Throwable $exception) {
             // If Stripe session creation fails, release holds still owned by this pending order.
             DB::transaction(function () use ($order): void {

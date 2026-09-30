@@ -12,6 +12,7 @@ use App\Services\StripeWebhookService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Stripe\Exception\ApiConnectionException;
 use Stripe\Exception\SignatureVerificationException;
 
 class OrderManagementController extends Controller
@@ -20,7 +21,7 @@ class OrderManagementController extends Controller
     {
         $orders = Orders::query()
             ->where('user_id', $request->user()->getKey())
-            ->with('orderItems.ticketType.event')
+            ->with(['orderItems.ticketType.event', 'refundRequests.event', 'ledgerEntries'])
             ->latest()
             ->get();
 
@@ -46,8 +47,8 @@ class OrderManagementController extends Controller
                         ],
                     ],
                     'quantity' => $orderItem->quantity,
-                    'unit_price_cents' => $orderItem->unit_price_cents,
-                    'sub_total_cents' => $orderItem->sub_total_cents,
+                    'unit_price_xaf' => $orderItem->unit_price_xaf,
+                    'sub_total_xaf' => $orderItem->sub_total_xaf,
                     'created_at' => $orderItem->created_at,
                     'updated_at' => $orderItem->updated_at,
                 ],
@@ -63,7 +64,13 @@ class OrderManagementController extends Controller
             'hold_ids.*' => ['required', 'integer', 'distinct', 'min:1'],
         ]);
 
-        return response()->json($checkoutService->checkout($request->user(), $validated['hold_ids']), 201);
+        try {
+            return response()->json($checkoutService->checkout($request->user(), $validated['hold_ids']), 201);
+        } catch (ApiConnectionException) {
+            return response()->json([
+                'message' => 'Stripe is temporarily unreachable. Your reservation is still held; retry checkout.',
+            ], 503);
+        }
     }
 
     public function refund(Request $request, OrderRefundService $refundService): JsonResponse

@@ -12,10 +12,7 @@ class LedgerEntries extends Model
         'order_id',
         'type',
         'reference_key',
-        'amount_cents',
-        'payment',
-        'refund',
-        'adjustment',
+        'amount_xaf',
     ];
 
     public function user(): BelongsTo

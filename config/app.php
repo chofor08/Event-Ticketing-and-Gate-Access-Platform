@@ -56,6 +56,8 @@ return [
 
     'frontend_url' => env('FRONTEND_URL'),
 
+    'currency' => 'xaf',
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

@@ -10,8 +10,8 @@ class ExampleTest extends TestCase
     /**
      * A basic test example.
      */
-    public function test_the_application_does_not_expose_a_web_frontend(): void
+    public function test_home_page_loads_the_frontend(): void
     {
-        $this->get('/')->assertNotFound();
+        $this->get('/')->assertOk()->assertSee('Gather | Find your next good thing');
     }
 }

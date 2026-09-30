@@ -97,6 +97,35 @@ class GateAdmissionApiTest extends TestCase
         $this->assertSame('attendee', $existing->fresh()->role);
     }
 
+    public function test_gate_access_lists_only_assigned_events_active_gates_and_owned_devices(): void
+    {
+        $organizer = User::factory()->organizer()->create();
+        $event = $this->createEvent($organizer);
+        $staff = User::factory()->create(['role' => 'attendee']);
+        $otherStaff = User::factory()->create(['role' => 'organizer']);
+        GateStaffAssignment::create([
+            'event_id' => $event->id,
+            'user_id' => $staff->id,
+            'assigned_by_user_id' => $organizer->id,
+        ]);
+        $activeGate = Gate::create(['event_id' => $event->id, 'name' => 'North', 'status' => 'active']);
+        Gate::create(['event_id' => $event->id, 'name' => 'Closed', 'status' => 'inactive']);
+        $activeDevice = $this->createDevice($activeGate, $staff);
+        $revokedDevice = $this->createDevice($activeGate, $staff);
+        $revokedDevice->update(['revoked_at' => now()]);
+        $otherDevice = $this->createDevice($activeGate, $otherStaff);
+
+        $this->actingAs($staff, 'sanctum')
+            ->getJson('/api/gate/access')
+            ->assertOk()
+            ->assertJsonCount(1, 'assignments')
+            ->assertJsonPath('assignments.0.event.id', $event->id)
+            ->assertJsonCount(1, 'assignments.0.event.gates')
+            ->assertJsonPath('assignments.0.event.gates.0.devices.0.id', $activeDevice->public_id)
+            ->assertJsonMissing(['id' => $revokedDevice->public_id])
+            ->assertJsonMissing(['id' => $otherDevice->public_id]);
+    }
+
     public function test_ticket_holders_cannot_scan_their_assigned_event(): void
     {
         $organizer = User::factory()->organizer()->create();
@@ -167,7 +196,11 @@ class GateAdmissionApiTest extends TestCase
             ->postJson("/api/gate/events/{$event->id}/gates/{$gate->id}/scans", [
                 'credential' => $credential,
                 'attempt_id' => (string) Str::uuid(),
-            ])->assertOk()->assertJsonPath('data.outcome', 'already_used');
+            ])->assertOk()
+            ->assertJsonPath('data.outcome', 'already_used')
+            ->assertJsonPath('data.admission.gate.id', $gate->id)
+            ->assertJsonPath('data.admission.gate.name', $gate->name)
+            ->assertJsonPath('data.admission.admitted_at', $ticket->fresh()->admitted_at->toIso8601String());
 
         $this->assertSame('admitted', $ticket->fresh()->status);
         $this->assertDatabaseCount('scan_attempts', 2);
@@ -272,7 +305,7 @@ class GateAdmissionApiTest extends TestCase
             'event_id' => $event->id,
             'reason' => 'attendee_request',
             'order_item_ids' => [$ticketItem->id],
-            'amount_cents' => 1200,
+            'amount_xaf' => 1200,
             'idempotency_key' => 'offline-stale-refund-'.$ticketItem->id,
             'status' => 'succeeded',
             'processed_at' => now(),
@@ -403,7 +436,7 @@ class GateAdmissionApiTest extends TestCase
         $ticketType = TicketType::create([
             'event_id' => $event->id,
             'name' => 'General',
-            'base_price_cents' => 1200,
+            'base_price_xaf' => 1200,
             'quantity' => $quantity,
         ]);
         $hold = Hold::create([
@@ -417,16 +450,16 @@ class GateAdmissionApiTest extends TestCase
         $order = Orders::create([
             'user_id' => $attendee->id,
             'status' => 'paid',
-            'currency' => 'usd',
-            'amount_cents' => 1200 * $quantity,
+            'currency' => 'xaf',
+            'amount_xaf' => 1200 * $quantity,
         ]);
         OrderItems::create([
             'order_id' => $order->id,
             'ticket_type_id' => $ticketType->id,
             'hold_id' => $hold->id,
             'quantity' => $quantity,
-            'unit_price_cents' => 1200,
-            'sub_total_cents' => 1200 * $quantity,
+            'unit_price_xaf' => 1200,
+            'sub_total_xaf' => 1200 * $quantity,
         ]);
 
         app(TicketIssuanceService::class)->issue($order);

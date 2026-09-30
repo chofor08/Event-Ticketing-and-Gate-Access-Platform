@@ -33,8 +33,8 @@ Route::get('/email/verify/{id}/{hash}', VerifyEmailController::class)
 Route::get('/events', [PublicEventController::class, 'index']);
 Route::get('/events/{event}', [PublicEventController::class, 'show']);
 Route::post('/stripe/webhook', [OrderManagementController::class, 'webhook'])->name('stripe.webhook');
-Route::get('/checkout/success', [OrderManagementController::class, 'success'])->name('checkout.success');
-Route::get('/checkout/cancel', [OrderManagementController::class, 'cancel'])->name('checkout.cancel');
+Route::get('/checkout/success', [OrderManagementController::class, 'success'])->name('api.checkout.success');
+Route::get('/checkout/cancel', [OrderManagementController::class, 'cancel'])->name('api.checkout.cancel');
 Route::post('/gate-invitations/accept', [GateInvitationAcceptanceController::class, 'store']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -49,6 +49,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/events', [EventController::class, 'store']);
         Route::get('/events/{event}', [EventController::class, 'showOrganizer']);
         Route::patch('/events/{event}', [EventController::class, 'update']);
+        Route::post('/events/{event}/publish', [EventController::class, 'publish']);
         Route::post('/events/{event}/cancel', [EventController::class, 'cancel']);
         Route::get('/events/{event}/ticket-types', [TicketTypeController::class, 'index']);
         Route::post('/events/{event}/ticket-types', [TicketTypeController::class, 'store']);
@@ -73,6 +74,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/my-tickets', [TicketController::class, 'index'])->middleware('role:attendee');
 
     Route::prefix('gate')->group(function (): void {
+        Route::get('/access', [GateDeviceController::class, 'access']);
         Route::get('/devices/{device}/snapshot', [GateDeviceController::class, 'snapshot']);
         Route::post('/devices/{device}/scan-sync', [GateScanController::class, 'sync'])->middleware('throttle:gate-scan');
         Route::post('/events/{event}/gates/{gate}/scans', [GateScanController::class, 'store'])

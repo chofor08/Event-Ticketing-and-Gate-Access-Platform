@@ -27,6 +27,24 @@ class EventService
         return $event->refresh();
     }
 
+    public function publishEvent(Event $event, User $organizer): Event
+    {
+        return DB::transaction(function () use ($event, $organizer): Event {
+            $event = Event::query()->whereKey($event->getKey())->lockForUpdate()->firstOrFail();
+            $this->authorizeOwner($event, $organizer);
+
+            if ($event->status !== 'draft') {
+                throw ValidationException::withMessages([
+                    'event' => 'Only draft events can be published.',
+                ]);
+            }
+
+            $event->update(['status' => 'published']);
+
+            return $event->refresh();
+        });
+    }
+
     public function cancelEvent(Event $event, User $organizer, OrderRefundService $refundService): array
     {
         [$event, $orders] = DB::transaction(function () use ($event, $organizer): array {

@@ -9,7 +9,7 @@
 	<p>Hello {{ $userName }},</p>
 	<p>Your refund for order #{{ $orderId }} has been processed.</p>
 	<table>
-		<tr><td>Refund amount</td><td>{{ $currency }} {{ $refundAmount }}</td></tr>
+		<tr><td>Refund amount</td><td>{{ $refundAmount }} {{ $currency }}</td></tr>
 		<tr><td>Transaction</td><td>{{ $txnId }}</td></tr>
 		<tr><td>Date processed</td><td>{{ $date }}</td></tr>
 		<tr><td>Payment method</td><td>{{ $method }}</td></tr>
@@ -20,7 +20,7 @@
 			@foreach ($items as $item)
 				<tr>
 					<td>{{ $item->name }} x {{ $item->quantity }}</td>
-					<td>{{ $currency }} {{ number_format($item->price, 2) }}</td>
+					<td>{{ number_format($item->price, 0) }} {{ $currency }}</td>
 				</tr>
 			@endforeach
 		</table>
