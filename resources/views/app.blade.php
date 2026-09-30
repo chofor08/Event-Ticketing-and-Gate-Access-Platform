@@ -12,7 +12,7 @@
 </head>
 <body>
     <header class="topbar">
-        <a class="wordmark" href="/" aria-label="Event Flow home"><span class="brand-mark">g</span>Event Flow<span class="wordmark-dot">.</span></a>
+        <a class="wordmark" href="/" aria-label="Event Flow home"><span class="brand-mark">Ef</span>Event Flow<span class="wordmark-dot">.</span></a>
         <nav class="primary-nav" aria-label="Main navigation">
             <button class="nav-link is-active" type="button" data-nav="discover">Discover</button>
             <button class="nav-link" type="button" data-nav="tickets">My tickets</button>
