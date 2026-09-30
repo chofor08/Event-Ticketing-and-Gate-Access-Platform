@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f4f4ee">
-    <title>Gather | Find your next good thing</title>
+    <title>Event Flow | Find your next good thing</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
 </head>
 <body>
     <header class="topbar">
-        <a class="wordmark" href="/" aria-label="Gather home"><span class="brand-mark">g</span>gather<span class="wordmark-dot">.</span></a>
+        <a class="wordmark" href="/" aria-label="Event Flow home"><span class="brand-mark">g</span>Event Flow<span class="wordmark-dot">.</span></a>
         <nav class="primary-nav" aria-label="Main navigation">
             <button class="nav-link is-active" type="button" data-nav="discover">Discover</button>
             <button class="nav-link" type="button" data-nav="tickets">My tickets</button>
@@ -116,7 +116,7 @@
         </section>
     </main>
 
-    <footer class="site-footer"><a class="wordmark" href="/"><span class="brand-mark">g</span>gather<span class="wordmark-dot">.</span></a><span>Good things happen when we get together.</span><span id="footer-year"></span></footer>
+    <footer class="site-footer"><a class="wordmark" href="/"><span class="brand-mark">g</span>Event Flow<span class="wordmark-dot">.</span></a><span>Good things happen when we get together.</span><span id="footer-year"></span></footer>
 
     <dialog class="dialog auth-dialog" id="auth-dialog">
         <button class="dialog-close" type="button" data-close-dialog="auth-dialog" aria-label="Close">Close</button>
