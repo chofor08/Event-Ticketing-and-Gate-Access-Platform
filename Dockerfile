@@ -1,3 +1,12 @@
+# Stage 1: build frontend assets
+FROM node:22 AS assets
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Stage 2: the PHP app
 FROM php:8.4-apache
 
    RUN apt-get update && apt-get install -y \
@@ -13,6 +22,7 @@ FROM php:8.4-apache
 
    WORKDIR /var/www/html
    COPY . .
+   COPY --from=assets /app/public/build /var/www/html/public/build
 
    RUN composer install --no-dev --optimize-autoloader --no-interaction
    RUN chown -R www-data:www-data storage bootstrap/cache
