@@ -31,7 +31,7 @@ class GateAdmissionApiTest extends TestCase
     {
         parent::setUp();
         $this->configureSigningKeys();
-        config(['ticketing.invitation_url' => 'https://gate.example.test/accept-invitation']);
+        config(['ticketing.invitation_url' => 'https://gate.example.test/gate-invitation/accept']);
     }
 
     public function test_organizer_invitation_queues_link_and_persists_only_the_token_hash(): void
@@ -47,14 +47,22 @@ class GateAdmissionApiTest extends TestCase
 
         Mail::assertQueued(GateStaffInvitationMail::class, function (GateStaffInvitationMail $mail): bool {
             $query = parse_url($mail->invitationUrl, PHP_URL_QUERY);
+            $path = parse_url($mail->invitationUrl, PHP_URL_PATH);
             parse_str(is_string($query) ? $query : '', $parameters);
             $storedInvitation = GateStaffInvitation::query()->firstOrFail();
+            $html = $mail->render();
+            $escapedUrl = e($mail->invitationUrl);
 
             return $mail->eventTitle === 'Admission Test Event'
+                && $path === '/gate-invitation/accept'
                 && is_string($parameters['token'] ?? null)
                 && hash_equals($storedInvitation->token_hash, hash('sha256', $parameters['token']))
+                && str_contains($html, 'href="'.$escapedUrl.'"')
+                && str_contains($html, $escapedUrl)
                 && ! str_contains($storedInvitation->token_hash, $parameters['token']);
         });
+
+        $this->get('/gate-invitation/accept?token=test-token')->assertOk();
 
         $response->assertJsonPath('invitation.email', 'gate-staff@example.test');
         $this->assertDatabaseCount('gate_staff_invitations', 1);
