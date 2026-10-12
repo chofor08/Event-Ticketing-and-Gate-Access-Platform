@@ -8,4 +8,28 @@
    php artisan storage:link || true
    php artisan migrate --force
 
+    # Queue worker, restarted automatically if it exits
+    (while true; do
+    runuser -u www-data -- php artisan queue:work --tries=3 --sleep=3 --max-time=3600
+    sleep 1
+    done) &
+
+    # Scheduler, restarted automatically if it exits
+    (while true; do
+    runuser -u www-data -- php artisan schedule:work
+    sleep 1
+    done) &
+
+    # Queue worker, restarted automatically if it exits
+    (while true; do
+    runuser -u www-data -- php artisan queue:work --tries=3 --sleep=3 --max-time=3600
+    sleep 1
+    done) &
+
+    # Scheduler, restarted automatically if it exits
+    (while true; do
+    runuser -u www-data -- php artisan schedule:work
+    sleep 1
+    done) &
+
    apache2-foreground
