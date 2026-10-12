@@ -12,6 +12,7 @@ use App\Services\StripeWebhookService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Stripe\Exception\ApiConnectionException;
 use Stripe\Exception\SignatureVerificationException;
 
@@ -103,13 +104,25 @@ class OrderManagementController extends Controller
 
     public function webhook(Request $request, StripeGateway $stripe, StripeWebhookService $webhookService): JsonResponse
     {
+        $secret = (string) config('services.stripe.webhook_secret');
+
         try {
             $event = $stripe->constructEvent(
                 $request->getContent(),
                 (string) $request->header('Stripe-Signature', ''),
-                (string) config('services.stripe.webhook_secret'),
+                $secret,
             );
-        } catch (\UnexpectedValueException|SignatureVerificationException) {
+        } catch (\UnexpectedValueException|SignatureVerificationException $e) {
+            Log::error('Stripe webhook rejected', [
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'secret_length' => strlen($secret),
+                'secret_prefix' => substr($secret, 0, 6),
+                'secret_last4' => substr($secret, -4),
+                'header_present' => $request->hasHeader('Stripe-Signature'),
+                'body_length' => strlen($request->getContent()),
+            ]);
+
             return response()->json(['message' => 'Invalid Stripe webhook signature.'], 400);
         }
 
